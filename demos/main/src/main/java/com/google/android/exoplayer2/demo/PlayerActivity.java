@@ -369,6 +369,13 @@ public class PlayerActivity extends Activity
   @Override
   public void onVisibilityChange(int visibility) {
     debugRootView.setVisibility(visibility);
+    debugTextView.setVisibility(visibility);
+    if (visibility == View.VISIBLE) {
+      playerView.setSystemUiVisibility(0);
+    } else {
+      playerView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
+              | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+    }
   }
 
   // Internal methods
@@ -500,6 +507,9 @@ public class PlayerActivity extends Activity
     }
     player.prepare(mediaSource, !haveStartPosition, false);
     updateButtonVisibilities();
+
+    // Hide controller by default.
+    playerView.hideController();
   }
 
   private MediaSource buildMediaSource(Uri uri) {
@@ -705,6 +715,8 @@ public class PlayerActivity extends Activity
 
   private void showControls() {
     debugRootView.setVisibility(View.VISIBLE);
+    debugTextView.setVisibility(View.VISIBLE);
+    playerView.setSystemUiVisibility(0);
   }
 
   private void showToast(int messageId) {
