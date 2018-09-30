@@ -57,6 +57,7 @@ import com.google.android.exoplayer2.offline.FilteringManifestParser;
 import com.google.android.exoplayer2.source.BehindLiveWindowException;
 import com.google.android.exoplayer2.source.ConcatenatingMediaSource;
 import com.google.android.exoplayer2.source.ExtractorMediaSource;
+import com.google.android.exoplayer2.source.LoopingMediaSource;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.source.ads.AdsLoader;
@@ -501,11 +502,15 @@ public class PlayerActivity extends Activity
         releaseAdsLoader();
       }
     }
+
+    // Loops video playback.
+    LoopingMediaSource loopingSource = new LoopingMediaSource(mediaSource);
+
     boolean haveStartPosition = startWindow != C.INDEX_UNSET;
     if (haveStartPosition) {
       player.seekTo(startWindow, startPosition);
     }
-    player.prepare(mediaSource, !haveStartPosition, false);
+    player.prepare(loopingSource, !haveStartPosition, false);
     updateButtonVisibilities();
 
     // Hide controller by default.
