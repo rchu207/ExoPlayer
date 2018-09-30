@@ -19,11 +19,14 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
 import android.util.Pair;
+import android.view.Display;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -47,7 +50,9 @@ import com.google.android.exoplayer2.drm.FrameworkMediaDrm;
 import com.google.android.exoplayer2.drm.HttpMediaDrmCallback;
 import com.google.android.exoplayer2.drm.UnsupportedDrmException;
 import com.google.android.exoplayer2.mediacodec.MediaCodecRenderer.DecoderInitializationException;
+import com.google.android.exoplayer2.mediacodec.MediaCodecUtil;
 import com.google.android.exoplayer2.mediacodec.MediaCodecUtil.DecoderQueryException;
+import com.google.android.exoplayer2.mediacodec.MediaCodecInfo;
 import com.google.android.exoplayer2.offline.FilteringManifestParser;
 import com.google.android.exoplayer2.source.BehindLiveWindowException;
 import com.google.android.exoplayer2.source.ConcatenatingMediaSource;
@@ -90,9 +95,13 @@ import java.net.CookiePolicy;
 import java.util.List;
 import java.util.UUID;
 
+import android.media.MediaCodecInfo.CodecProfileLevel;
+
 /** An activity that plays media using {@link SimpleExoPlayer}. */
 public class PlayerActivity extends Activity
     implements OnClickListener, PlaybackPreparer, PlayerControlView.VisibilityListener {
+
+  protected static final String TAG = "Player";
 
   public static final String DRM_SCHEME_EXTRA = "drm_scheme";
   public static final String DRM_LICENSE_URL_EXTRA = "drm_license_url";
@@ -193,11 +202,70 @@ public class PlayerActivity extends Activity
     setIntent(intent);
   }
 
+  private boolean checkHdrDisplay(int targetType) {
+    boolean isHdr = false;
+
+    Display display = getWindowManager().getDefaultDisplay();
+    if (Util.SDK_INT > 23) {
+      int[] types = display.getHdrCapabilities().getSupportedHdrTypes();
+      if (types.length == 0) {
+        Log.i(TAG, "[Display]HDR capabilities: empty");
+      } else {
+        for (int type : types) {
+          isHdr = isHdr || (targetType == type);
+          Log.i(TAG, "[Display]HDR capabilities: " + type);
+        }
+      }
+
+      Log.i(TAG, "[Display]HDR luminance: " + display.getHdrCapabilities().getDesiredMinLuminance() +
+              ", " + display.getHdrCapabilities().getDesiredMaxLuminance() +
+              ", " + display.getHdrCapabilities().getDesiredMaxAverageLuminance());
+    }
+
+    if (Util.SDK_INT > 25) {
+      Log.i(TAG, "[Display]HDR support : " + display.isHdr());
+      isHdr = isHdr || display.isHdr();
+    }
+
+    return isHdr;
+  }
+
+  private boolean checkHdrDecoder(String mimeType, int targetProfile) {
+    CodecProfileLevel[] profileLevels = null;
+    try {
+      MediaCodecInfo decoderInfo = MediaCodecUtil.getDecoderInfo(mimeType, false);
+      if (decoderInfo != null) {
+        profileLevels = decoderInfo.getProfileLevels();
+      }
+    } catch (DecoderQueryException e) {
+      Log.e(TAG, "[Decoder]Can't get decoder with " + mimeType, e);
+    }
+
+    boolean isHdr = false;
+    if (profileLevels == null || profileLevels.length == 0) {
+      Log.i(TAG, "[Decoder][" + mimeType + "]No codec profiles and levels");
+    } else {
+      for (CodecProfileLevel profileLevel : profileLevels) {
+        Log.i(TAG, "[Decoder][" + mimeType + "]Profile: " + profileLevel.profile + ", Level: " + profileLevel.level);
+        if (profileLevel.profile == targetProfile) {
+          isHdr = true;
+        }
+      }
+    }
+
+    return isHdr;
+  }
+
+
   @Override
   public void onStart() {
     super.onStart();
     if (Util.SDK_INT > 23) {
       initializePlayer();
+      checkHdrDisplay(Display.HdrCapabilities.HDR_TYPE_HDR10);
+      checkHdrDecoder(MediaFormat.MIMETYPE_VIDEO_HEVC, CodecProfileLevel.HEVCProfileMain10HDR10);
+      checkHdrDecoder(MediaFormat.MIMETYPE_VIDEO_VP9, CodecProfileLevel.VP9Profile2HDR);
+      checkHdrDecoder(MediaFormat.MIMETYPE_VIDEO_VP9, CodecProfileLevel.VP9Profile3HDR);
     }
   }
 
